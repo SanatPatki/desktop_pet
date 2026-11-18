@@ -1,11 +1,12 @@
+import { PetEngine } from '../pet/engine.js';
 import { createSprites, PET_WIDTH, PET_HEIGHT } from '../pet/sprites.js';
 
 const canvas = document.getElementById('pet-canvas');
 const context = canvas.getContext('2d');
 const sprites = createSprites();
+const engine = new PetEngine({ width: window.innerWidth, height: window.innerHeight });
 
 let character = 'dragon';
-let animationTime = 0;
 let lastFrameTime = performance.now();
 
 function resizeCanvas() {
@@ -14,27 +15,50 @@ function resizeCanvas() {
   canvas.height = Math.floor(window.innerHeight * pixelRatio);
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   context.imageSmoothingEnabled = false;
+  engine.setBounds(window.innerWidth, window.innerHeight);
 }
 
-function currentFrame() {
-  const frames = sprites[character].idle;
-  return frames[Math.floor(animationTime / 600) % frames.length];
+function currentFrame(state) {
+  const creature = sprites[character];
+  if (state.mode === 'pet') {
+    return creature.pet[0];
+  }
+  if (state.mode === 'walk') {
+    return creature.walk[Math.floor(state.time / 160) % creature.walk.length];
+  }
+  return creature.idle[Math.floor(state.time / 650) % creature.idle.length];
 }
 
-function render() {
+function drawFrame(frame, x, y, direction) {
+  const drawX = Math.round(x);
+  const drawY = Math.round(y);
+
+  if (direction >= 0) {
+    context.drawImage(frame.canvas, drawX, drawY);
+    return;
+  }
+
+  context.save();
+  context.translate(drawX + PET_WIDTH, drawY);
+  context.scale(-1, 1);
+  context.drawImage(frame.canvas, 0, 0);
+  context.restore();
+}
+
+function render(state) {
   context.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
-  const frame = currentFrame();
-  const x = Math.round(window.innerWidth / 2 - PET_WIDTH / 2);
-  const y = Math.round(window.innerHeight / 2 - PET_HEIGHT / 2);
-  context.drawImage(frame.canvas, x, y);
+  const bob = state.mode === 'walk'
+    ? Math.round(Math.abs(Math.sin(state.time / 110)))
+    : Math.round(Math.sin(state.time / (state.mode === 'pet' ? 450 : 320)));
+
+  drawFrame(currentFrame(state), state.x, state.y + bob, state.direction);
 }
 
 function loop(now) {
   const delta = Math.min((now - lastFrameTime) / 1000, 0.1);
   lastFrameTime = now;
-  animationTime += delta * 1000;
-  render();
+  render(engine.update(delta));
   requestAnimationFrame(loop);
 }
 
