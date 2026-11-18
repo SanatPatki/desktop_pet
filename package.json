@@ -5,7 +5,7 @@
   "type": "module",
   "main": "src/main/main.js",
   "scripts": {
-    "start": "electron .",
+    "start": "ELECTRON_RUN_AS_NODE= electron .",
     "test": "node --test tests/*.test.js"
   },
   "devDependencies": {
