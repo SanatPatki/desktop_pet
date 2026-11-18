@@ -5,20 +5,6 @@ export const PET_WIDTH = GRID_WIDTH * PIXEL_SIZE;
 export const PET_HEIGHT = GRID_HEIGHT * PIXEL_SIZE;
 
 const PALETTES = {
-  dragon: {
-    outline: '#101a17',
-    body: '#2fbf71',
-    shade: '#1d8a52',
-    belly: '#ffe08a',
-    wing: '#7b5cff',
-    wingShade: '#5a3fd4',
-    wingLight: '#ffd166',
-    horn: '#fff3d6',
-    eye: '#4cc9f0',
-    pupil: '#0c1f28',
-    blush: '#ff9f6e',
-    claw: '#ffd166',
-  },
   phoenix: {
     outline: '#2a0d12',
     body: '#ef3b4d',
@@ -255,131 +241,6 @@ function drawTail(p, pal, bodyColor, shadeColor, tipColor, flame) {
   }
 }
 
-function drawDragon(p, pose) {
-  const pal = PALETTES.dragon;
-  const flap = pose.flap ?? 0;
-  const raise = FLAP_RAISE[flap] ?? 0;
-  const step = pose.legPhase ? 1 : 0;
-
-  drawTail(p, pal, pal.body, pal.shade, pal.claw, false);
-
-  p.ellipse(13 + step, 26, 2, 1, pal.shade);
-  p.rect(12 + step, 26, 3, 3, pal.shade);
-  p.polygon(
-    [
-      [11 + step, 28],
-      [16 + step, 28],
-      [15 + step, 27],
-      [12 + step, 27],
-    ],
-    pal.claw,
-  );
-
-  const shoulder = [15, 17];
-  const elbow = [10, 11 - raise * 5];
-  const tips = [
-    [3, 7 - raise * 5],
-    [4, 11 - raise * 4],
-    [8, 15 - raise * 3],
-  ];
-  p.polygon([shoulder, elbow, tips[0], tips[1], tips[2], [13, 19], shoulder], pal.wing);
-  p.polygon([shoulder, elbow, tips[0]], pal.wingShade);
-  p.polygon([elbow, tips[0], tips[1]], pal.wingShade);
-  p.polygon([tips[0], [tips[0][0] + 2, tips[0][1] + 2], [tips[0][0] - 2, tips[0][1] + 1]], pal.wingLight);
-  p.polygon([tips[1], [tips[1][0] + 2, tips[1][1] + 2], [tips[1][0] - 1, tips[1][1] + 2]], pal.wingLight);
-  p.line(shoulder[0], shoulder[1], elbow[0], elbow[1], pal.wingLight);
-
-  p.ellipse(16, 21, 10, 6, pal.body);
-  p.ellipse(16, 23, 9, 3, pal.shade);
-  p.ellipse(17, 22, 7, 3, pal.belly);
-
-  p.ellipse(24 - step, 26, 2, 1, pal.shade);
-  p.rect(23 - step, 26, 3, 3, pal.shade);
-  p.polygon(
-    [
-      [22 - step, 28],
-      [27 - step, 28],
-      [26 - step, 27],
-      [23 - step, 27],
-    ],
-    pal.claw,
-  );
-
-  p.polygon(
-    [
-      [23, 19],
-      [28, 13],
-      [31, 14],
-      [29, 20],
-    ],
-    pal.body,
-  );
-  p.polygon(
-    [
-      [25, 20],
-      [28, 16],
-      [30, 18],
-    ],
-    pal.shade,
-  );
-
-  p.polygon(
-    [
-      [28, 10],
-      [25, 4],
-      [30, 10],
-    ],
-    pal.horn,
-  );
-  p.polygon(
-    [
-      [30, 9],
-      [29, 2],
-      [33, 8],
-    ],
-    pal.horn,
-  );
-  p.polygon(
-    [
-      [27, 10],
-      [29, 5],
-      [31, 10],
-    ],
-    pal.claw,
-  );
-
-  p.ellipse(32, 14, 5, 4, pal.body);
-  p.polygon(
-    [
-      [35, 13],
-      [40, 15],
-      [40, 18],
-      [35, 18],
-    ],
-    pal.body,
-  );
-  p.polygon(
-    [
-      [35, 18],
-      [39, 19],
-      [35, 19],
-    ],
-    pal.shade,
-  );
-  p.set(39, 16, pal.pupil);
-
-  if (pose.eyes === 'happy') {
-    p.rect(31, 14, 4, 1, pal.outline);
-    p.set(30, 17, pal.blush);
-    p.set(29, 18, pal.blush);
-  } else {
-    p.rect(32, 12, 3, 3, pal.eye);
-    p.set(32, 12, '#ffffff');
-    p.set(33, 13, pal.pupil);
-    p.rect(31, 10, 4, 1, pal.horn);
-  }
-}
-
 function drawPhoenix(p, pose) {
   const pal = PALETTES.phoenix;
   const flap = pose.flap ?? 0;
@@ -505,7 +366,6 @@ function drawPhoenix(p, pose) {
 }
 
 const DRAWERS = {
-  dragon: drawDragon,
   phoenix: drawPhoenix,
 };
 
@@ -538,11 +398,6 @@ function createFrame(character, pose) {
 
 export function createSprites() {
   return {
-    dragon: {
-      idle: [0, 1, 2, 3, 4, 5].map((flap) => createFrame('dragon', { flap })),
-      walk: [0, 1, 2, 3, 4, 5].map((flap) => createFrame('dragon', { flap, legPhase: flap % 2 })),
-      pet: [createFrame('dragon', { flap: 2, eyes: 'happy' })],
-    },
     phoenix: {
       idle: [0, 1, 2, 3, 4, 5].map((flap) => createFrame('phoenix', { flap })),
       walk: [0, 1, 2, 3, 4, 5].map((flap) => createFrame('phoenix', { flap, legPhase: flap % 2 })),

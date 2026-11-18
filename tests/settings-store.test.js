@@ -7,8 +7,8 @@ import { loadSettings, normalizeState, saveSettings } from '../src/main/settings
 
 test('normalizeState accepts known characters and rejects unknown values', () => {
   assert.deepEqual(normalizeState({ character: 'phoenix' }), { character: 'phoenix' });
-  assert.deepEqual(normalizeState({ character: 'unicorn' }), { character: 'dragon' });
-  assert.deepEqual(normalizeState(null), { character: 'dragon' });
+  assert.deepEqual(normalizeState({ character: 'unicorn' }), { character: 'phoenix' });
+  assert.deepEqual(normalizeState(null), { character: 'phoenix' });
 });
 
 test('settings round-trip through a file', async () => {

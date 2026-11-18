@@ -10,7 +10,7 @@ const engine = new PetEngine({ width: window.innerWidth, height: window.innerHei
 const heartSprite = createHeartSprite();
 const heartParticles = new HeartParticles();
 
-let character = 'dragon';
+let character = 'phoenix';
 let cursor = null;
 let lastRender = null;
 let lastFrameTime = performance.now();
@@ -101,11 +101,11 @@ function loop(now) {
 async function loadState() {
   try {
     const state = await window.desktopPet?.getState?.();
-    if (state?.character === 'dragon' || state?.character === 'phoenix') {
+    if (state?.character === 'phoenix') {
       character = state.character;
     }
   } catch {
-    character = 'dragon';
+    character = 'phoenix';
   }
 }
 
@@ -114,7 +114,7 @@ window.desktopPet?.onCursor?.((point) => {
 });
 
 window.desktopPet?.onState?.((state) => {
-  if (state?.character === 'dragon' || state?.character === 'phoenix') {
+  if (state?.character === 'phoenix') {
     character = state.character;
   }
 });
