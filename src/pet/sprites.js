@@ -12,6 +12,8 @@ const PALETTES = {
     belly: '#ffcf5c',
     wing: '#ff8c1a',
     wingShade: '#d9480f',
+    farWing: '#c2520f',
+    farWingShade: '#8a3208',
     wingLight: '#ffd23f',
     flame: '#fff3b0',
     beak: '#ffb703',
@@ -241,6 +243,18 @@ function drawTail(p, pal, bodyColor, shadeColor, tipColor, flame) {
   }
 }
 
+function drawPhoenixFarWing(p, pal, flap) {
+  const raise = (FLAP_RAISE[flap] ?? 0) * 0.8;
+  const feathers = [
+    [[14, 14], [1, 2 - raise * 3], pal.farWing],
+    [[14, 14], [3, 7 - raise * 3], pal.farWingShade],
+    [[14, 14], [9, 12 - raise * 2], pal.wingShade],
+  ];
+  for (const [base, tip, color] of feathers) {
+    feather(p, base, tip, 2, color);
+  }
+}
+
 function drawPhoenix(p, pose) {
   const pal = PALETTES.phoenix;
   const flap = pose.flap ?? 0;
@@ -248,6 +262,7 @@ function drawPhoenix(p, pose) {
   const step = pose.legPhase ? 1 : 0;
 
   drawTail(p, pal, pal.wingShade, pal.shade, pal.flame, true);
+  drawPhoenixFarWing(p, pal, flap);
 
   p.rect(12 + step, 26, 3, 3, pal.wingShade);
   p.polygon(
