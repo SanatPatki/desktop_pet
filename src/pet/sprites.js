@@ -1,38 +1,45 @@
-export const GRID_WIDTH = 24;
-export const GRID_HEIGHT = 18;
+export const GRID_WIDTH = 28;
+export const GRID_HEIGHT = 20;
 export const PIXEL_SIZE = 4;
 export const PET_WIDTH = GRID_WIDTH * PIXEL_SIZE;
 export const PET_HEIGHT = GRID_HEIGHT * PIXEL_SIZE;
 
 const PALETTES = {
   dragon: {
-    outline: '#20312b',
-    body: '#3d9d63',
-    bodyDark: '#2c7a4b',
-    belly: '#bfe8c9',
-    wing: '#f4a261',
-    wingDark: '#d97b3f',
-    wingLight: '#ffd166',
+    outline: '#17251f',
+    body: '#2f9e5f',
+    shade: '#237a4b',
+    belly: '#f4d35e',
+    wing: '#6d4c9f',
+    wingShade: '#4c3573',
+    wingLight: '#f4a261',
+    accent: '#ffd166',
     horn: '#f8f3d9',
-    eye: '#ffe066',
-    pupil: '#1d1b16',
+    eye: '#4cc9f0',
+    pupil: '#10232b',
     blush: '#f4a261',
+    detail: '#1d4d38',
+    highlight: '#ffffff',
   },
   phoenix: {
-    outline: '#4a1d1d',
-    body: '#e63946',
-    bodyDark: '#b4232f',
-    belly: '#f4a261',
-    wing: '#ffb703',
-    wingDark: '#fb8500',
+    outline: '#3a1420',
+    body: '#d62828',
+    shade: '#a4161a',
+    belly: '#ffb703',
+    wing: '#ff9f1c',
+    wingShade: '#e85d04',
     wingLight: '#ffd60a',
     flame: '#fff3b0',
     beak: '#ff9f1c',
     eye: '#fff6d8',
     pupil: '#3a0d0d',
     blush: '#ffb703',
+    detail: '#7f1d1d',
+    highlight: '#ffffff',
   },
 };
+
+const FLAP_RAISE = [0, 0.55, 1, 0.7];
 
 function pointInPolygon(x, y, points) {
   let inside = false;
@@ -55,6 +62,7 @@ function createPixelCanvas() {
   const context = canvas.getContext('2d');
   context.imageSmoothingEnabled = false;
 
+  const grid = new Array(GRID_WIDTH * GRID_HEIGHT).fill(null);
   const hit = new Uint8Array(GRID_WIDTH * GRID_HEIGHT);
 
   function set(x, y, color) {
@@ -63,8 +71,7 @@ function createPixelCanvas() {
     if (gridX < 0 || gridY < 0 || gridX >= GRID_WIDTH || gridY >= GRID_HEIGHT || !color) {
       return;
     }
-    context.fillStyle = color;
-    context.fillRect(gridX * PIXEL_SIZE, gridY * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+    grid[gridY * GRID_WIDTH + gridX] = color;
     hit[gridY * GRID_WIDTH + gridX] = 1;
   }
 
@@ -108,15 +115,17 @@ function createPixelCanvas() {
   function line(x0, y0, x1, y1, color) {
     let x = Math.round(x0);
     let y = Math.round(y0);
-    const dx = Math.abs(Math.round(x1) - x);
-    const dy = -Math.abs(Math.round(y1) - y);
-    const sx = x < Math.round(x1) ? 1 : -1;
-    const sy = y < Math.round(y1) ? 1 : -1;
+    const targetX = Math.round(x1);
+    const targetY = Math.round(y1);
+    const dx = Math.abs(targetX - x);
+    const dy = -Math.abs(targetY - y);
+    const sx = x < targetX ? 1 : -1;
+    const sy = y < targetY ? 1 : -1;
     let error = dx + dy;
 
     while (true) {
       set(x, y, color);
-      if (x === Math.round(x1) && y === Math.round(y1)) {
+      if (x === targetX && y === targetY) {
         break;
       }
       const doubled = 2 * error;
@@ -131,276 +140,412 @@ function createPixelCanvas() {
     }
   }
 
-  return { canvas, context, hit, set, rect, ellipse, polygon, line };
+  function finalize(outlineColor) {
+    for (let y = 0; y < GRID_HEIGHT; y += 1) {
+      for (let x = 0; x < GRID_WIDTH; x += 1) {
+        const index = y * GRID_WIDTH + x;
+        if (!hit[index]) {
+          continue;
+        }
+        const boundary =
+          x === 0 ||
+          y === 0 ||
+          x === GRID_WIDTH - 1 ||
+          y === GRID_HEIGHT - 1 ||
+          !hit[index - 1] ||
+          !hit[index + 1] ||
+          !hit[index - GRID_WIDTH] ||
+          !hit[index + GRID_WIDTH];
+        if (boundary) {
+          grid[index] = outlineColor;
+        }
+      }
+    }
+
+    for (let y = 0; y < GRID_HEIGHT; y += 1) {
+      for (let x = 0; x < GRID_WIDTH; x += 1) {
+        const index = y * GRID_WIDTH + x;
+        if (!hit[index]) {
+          continue;
+        }
+        context.fillStyle = grid[index] || outlineColor;
+        context.fillRect(x * PIXEL_SIZE, y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+      }
+    }
+  }
+
+  return { canvas, hit, set, rect, ellipse, polygon, line, finalize };
 }
 
-function drawWing(painter, palette, lift, kind) {
-  const outer = [
-    [12, 8],
-    [9, 3 - lift],
-    [5, 4 - lift],
-    [4, 6 - lift],
-    [7, 8],
-    [10, 9],
-    [12, 8],
-  ];
-  const inner = [
-    [11, 8],
-    [9, 4 - lift],
-    [6, 5 - lift],
-    [6, 7 - lift],
-    [8, 8],
-    [10, 9],
-  ];
-
-  painter.polygon(outer, palette.outline);
-  painter.polygon(inner, palette.wing);
-  painter.polygon(
+function feather(p, base, tip, width, color) {
+  const dx = tip[0] - base[0];
+  const dy = tip[1] - base[1];
+  const length = Math.hypot(dx, dy) || 1;
+  const nx = (-dy / length) * width;
+  const ny = (dx / length) * width;
+  p.polygon(
     [
-      [10, 8],
-      [8, 5 - lift],
-      [7, 7 - lift],
-      [9, 9],
+      base,
+      [tip[0] + nx, tip[1] + ny],
+      [tip[0] - nx, tip[1] - ny],
     ],
-    palette.wingLight,
+    color,
   );
-  painter.line(12, 8, 5, 4 - lift, palette.wingDark);
-  painter.line(12, 8, 7, 8, palette.wingDark);
-  painter.line(12, 8, 4, 6 - lift, palette.wingDark);
+}
 
-  if (kind === 'phoenix') {
-    painter.polygon(
+function drawDragonTail(p, pal) {
+  p.polygon(
+    [
+      [11, 12],
+      [8, 10],
+      [5, 11],
+      [2, 13],
+      [4, 15],
+      [10, 15],
+    ],
+    pal.shade,
+  );
+  p.polygon(
+    [
+      [1, 12],
+      [3, 9],
+      [5, 11],
+      [4, 14],
+      [2, 14],
+    ],
+    pal.accent,
+  );
+  p.line(6, 12, 9, 13, pal.accent);
+}
+
+function drawDragonWing(p, pal, flap) {
+  const raise = FLAP_RAISE[flap] ?? 0;
+  const shoulder = [13, 10];
+  const wrist = [7, 6 - raise * 3];
+  const tips = [
+    [2, 4 - raise * 3],
+    [3, 7 - raise * 2],
+    [6, 9 - raise * 2],
+  ];
+
+  p.polygon([shoulder, wrist, tips[0], tips[1], tips[2], [10, 11], [13, 10]], pal.wing);
+  p.polygon([shoulder, wrist, tips[0], tips[1]], pal.wingShade);
+  p.polygon([shoulder, [11, 7 - raise], [10, 10]], pal.wingShade);
+
+  p.line(shoulder[0], shoulder[1], wrist[0], wrist[1], pal.wingLight);
+  for (const tip of tips) {
+    p.line(wrist[0], wrist[1], tip[0], tip[1], pal.wingShade);
+    feather(p, wrist, tip, 1, pal.wingLight);
+    p.polygon(
       [
-        [4, 6 - lift],
-        [2, 4 - lift],
-        [5, 5 - lift],
-        [4, 7 - lift],
+        tip,
+        [tip[0] + 1, tip[1] + 1],
+        [tip[0] - 1, tip[1] + 1],
       ],
-      palette.flame,
+      pal.accent,
     );
   }
 }
 
-function drawLegs(painter, palette, phase) {
-  const footOffset = phase ? 1 : 0;
-  for (const [x, direction] of [
-    [8, -1],
-    [16, 1],
-  ]) {
-    painter.rect(x, 14, 2, 3, palette.outline);
-    painter.rect(x + (direction === 1 ? 0 : 0), 15, 1, 2, palette.bodyDark);
-    painter.rect(x + footOffset, 17, 3, 1, palette.outline);
+function drawDragonLegs(p, pal, phase) {
+  const offset = phase ? 1 : 0;
+  p.ellipse(8, 15, 2, 2, pal.body);
+  p.rect(7 + offset, 16, 2, 3, pal.shade);
+  p.polygon(
+    [
+      [6 + offset, 18],
+      [10 + offset, 18],
+      [9 + offset, 17],
+      [7 + offset, 17],
+    ],
+    pal.accent,
+  );
+
+  p.ellipse(17, 15, 2, 2, pal.body);
+  p.rect(16 - offset, 16, 2, 3, pal.shade);
+  p.polygon(
+    [
+      [15 - offset, 18],
+      [19 - offset, 18],
+      [18 - offset, 17],
+      [16 - offset, 17],
+    ],
+    pal.accent,
+  );
+}
+
+function drawDragonBody(p, pal) {
+  p.ellipse(12, 13, 6, 4, pal.body);
+  p.ellipse(12, 14, 5, 2, pal.shade);
+  p.ellipse(13, 14, 4, 1, pal.belly);
+  p.line(8, 11, 11, 10, pal.detail);
+  p.line(11, 10, 14, 11, pal.detail);
+}
+
+function drawDragonNeck(p, pal) {
+  p.polygon(
+    [
+      [15, 11],
+      [18, 8],
+      [21, 9],
+      [19, 12],
+    ],
+    pal.body,
+  );
+  p.polygon(
+    [
+      [17, 12],
+      [19, 10],
+      [20, 12],
+    ],
+    pal.shade,
+  );
+  p.line(16, 10, 19, 9, pal.accent);
+  p.line(16, 11, 19, 12, pal.accent);
+}
+
+function drawDragonHead(p, pal, eyes) {
+  p.ellipse(22, 9, 4, 3, pal.body);
+  p.polygon(
+    [
+      [24, 8],
+      [28, 9],
+      [28, 11],
+      [24, 11],
+    ],
+    pal.body,
+  );
+  p.polygon(
+    [
+      [24, 11],
+      [27, 12],
+      [24, 12],
+    ],
+    pal.shade,
+  );
+  p.set(27, 9, pal.pupil);
+
+  p.polygon(
+    [
+      [20, 7],
+      [18, 3],
+      [21, 6],
+    ],
+    pal.horn,
+  );
+  p.polygon(
+    [
+      [22, 6],
+      [21, 2],
+      [24, 5],
+    ],
+    pal.horn,
+  );
+  p.polygon(
+    [
+      [20, 6],
+      [22, 3],
+      [24, 6],
+    ],
+    pal.accent,
+  );
+
+  if (eyes === 'happy') {
+    p.rect(22, 8, 3, 1, pal.outline);
+    p.set(20, 10, pal.blush);
+    p.set(19, 11, pal.blush);
+  } else {
+    p.rect(23, 7, 2, 2, pal.eye);
+    p.set(23, 7, pal.highlight);
+    p.set(24, 8, pal.pupil);
   }
 }
 
-function drawDragonTail(painter, palette) {
-  painter.ellipse(4, 12, 3, 1, palette.outline);
-  painter.ellipse(4, 12, 2, 1, palette.body);
-  painter.ellipse(7, 11, 3, 1, palette.outline);
-  painter.ellipse(7, 11, 2, 1, palette.body);
-  painter.ellipse(10, 10, 3, 1, palette.outline);
-  painter.ellipse(10, 10, 2, 1, palette.bodyDark);
+function drawDragon(p, pose) {
+  const pal = PALETTES.dragon;
+  drawDragonTail(p, pal);
+  drawDragonWing(p, pal, pose.flap ?? 0);
+  drawDragonLegs(p, pal, pose.legPhase ?? 0);
+  drawDragonBody(p, pal);
+  drawDragonNeck(p, pal);
+  drawDragonHead(p, pal, pose.eyes ?? 'open');
+}
 
-  painter.polygon(
+function drawPhoenixTail(p, pal) {
+  p.polygon(
     [
-      [1, 10],
-      [3, 7],
-      [5, 9],
+      [10, 12],
+      [6, 10],
       [3, 12],
+      [5, 15],
+      [9, 15],
     ],
-    palette.outline,
+    pal.shade,
   );
-  painter.polygon(
+  p.polygon(
     [
-      [2, 10],
-      [3, 8],
-      [4, 10],
-      [3, 11],
+      [8, 13],
+      [5, 11],
+      [4, 13],
+      [7, 15],
     ],
-    palette.wing,
+    pal.wing,
+  );
+  p.polygon(
+    [
+      [2, 14],
+      [4, 12],
+      [6, 14],
+      [3, 16],
+    ],
+    pal.flame,
+  );
+  p.line(6, 12, 9, 13, pal.wingLight);
+}
+
+function drawPhoenixWing(p, pal, flap) {
+  const raise = FLAP_RAISE[flap] ?? 0;
+  const shoulder = [13, 10];
+  const feathers = [
+    [[13, 10], [3, 3 - raise * 3], pal.wingLight],
+    [[13, 10], [2, 6 - raise * 2], pal.wing],
+    [[13, 10], [5, 8 - raise * 2], pal.wingShade],
+    [[12, 9], [8, 3 - raise * 3], pal.flame],
+    [[12, 9], [9, 5 - raise * 2], pal.wing],
+  ];
+
+  p.ellipse(12, 9, 2, 2, pal.wingShade);
+  for (const [base, tip, color] of feathers) {
+    feather(p, base, tip, 1, color);
+    p.line(base[0], base[1], tip[0], tip[1], pal.outline);
+    p.polygon(
+      [
+        tip,
+        [tip[0] + 1, tip[1] + 1],
+        [tip[0] - 1, tip[1] + 1],
+      ],
+      pal.flame,
+    );
+  }
+}
+
+function drawPhoenixLegs(p, pal, phase) {
+  const offset = phase ? 1 : 0;
+  p.rect(7 + offset, 15, 2, 4, pal.wingShade);
+  p.polygon(
+    [
+      [6 + offset, 18],
+      [10 + offset, 18],
+      [9 + offset, 17],
+      [7 + offset, 17],
+    ],
+    pal.beak,
+  );
+  p.rect(16 - offset, 15, 2, 4, pal.wingShade);
+  p.polygon(
+    [
+      [15 - offset, 18],
+      [19 - offset, 18],
+      [18 - offset, 17],
+      [16 - offset, 17],
+    ],
+    pal.beak,
   );
 }
 
-function drawDragonBody(painter, palette) {
-  painter.ellipse(12, 11, 8, 5, palette.outline);
-  painter.ellipse(12, 11, 7, 4, palette.body);
-  painter.ellipse(12, 12, 5, 2, palette.belly);
+function drawPhoenixBody(p, pal) {
+  p.ellipse(12, 13, 6, 4, pal.body);
+  p.ellipse(12, 14, 5, 2, pal.shade);
+  p.ellipse(13, 14, 4, 1, pal.belly);
+  p.line(8, 11, 11, 10, pal.detail);
+  p.line(11, 10, 14, 11, pal.detail);
+}
 
-  painter.polygon(
+function drawPhoenixNeck(p, pal) {
+  p.polygon(
     [
-      [8, 8],
-      [9, 6],
-      [10, 8],
+      [15, 11],
+      [18, 8],
+      [21, 9],
+      [19, 12],
     ],
-    palette.horn,
+    pal.body,
   );
-  painter.polygon(
+  p.polygon(
     [
-      [12, 7],
-      [13, 5],
-      [14, 7],
+      [17, 12],
+      [19, 10],
+      [20, 12],
     ],
-    palette.horn,
+    pal.shade,
   );
-  painter.polygon(
+  p.polygon(
+    [
+      [16, 11],
+      [19, 9],
+      [20, 11],
+      [18, 13],
+    ],
+    pal.flame,
+  );
+}
+
+function drawPhoenixHead(p, pal, eyes) {
+  p.ellipse(21, 9, 4, 3, pal.body);
+  p.polygon(
     [
       [15, 8],
-      [16, 6],
-      [17, 8],
+      [13, 3],
+      [16, 7],
     ],
-    palette.horn,
+    pal.wing,
   );
-}
-
-function drawDragonHead(painter, palette, eyes) {
-  painter.ellipse(16, 9, 4, 3, palette.outline);
-  painter.ellipse(16, 9, 3, 2, palette.body);
-  painter.ellipse(19, 8, 5, 3, palette.outline);
-  painter.ellipse(19, 8, 4, 2, palette.body);
-
-  painter.polygon(
+  p.polygon(
     [
-      [16, 5],
-      [18, 2],
-      [19, 5],
-      [17, 6],
+      [18, 7],
+      [17, 0],
+      [20, 6],
     ],
-    palette.horn,
+    pal.flame,
   );
-  painter.polygon(
+  p.polygon(
     [
-      [15, 6],
-      [16, 3],
-      [17, 6],
+      [21, 6],
+      [22, 2],
+      [23, 6],
     ],
-    palette.horn,
+    pal.wingLight,
   );
-
-  painter.polygon(
+  p.polygon(
     [
-      [20, 7],
       [23, 8],
+      [28, 9],
+      [28, 10],
       [23, 10],
-      [20, 10],
     ],
-    palette.outline,
+    pal.beak,
   );
-  painter.polygon(
-    [
-      [21, 7],
-      [22, 8],
-      [22, 10],
-      [21, 10],
-    ],
-    palette.body,
-  );
-  painter.set(22, 8, palette.outline);
+  p.set(27, 9, pal.pupil);
 
   if (eyes === 'happy') {
-    painter.rect(20, 7, 2, 1, palette.outline);
-    painter.set(18, 9, palette.blush);
-    painter.set(17, 10, palette.blush);
+    p.rect(21, 8, 3, 1, pal.outline);
+    p.set(19, 10, pal.blush);
+    p.set(18, 11, pal.blush);
   } else {
-    painter.rect(20, 6, 2, 2, palette.eye);
-    painter.rect(21, 6, 1, 2, palette.pupil);
-    painter.rect(19, 5, 3, 1, palette.outline);
+    p.rect(22, 7, 2, 2, pal.eye);
+    p.set(22, 7, pal.highlight);
+    p.set(23, 8, pal.pupil);
   }
 }
 
-function drawPhoenixTail(painter, palette) {
-  painter.polygon(
-    [
-      [1, 12],
-      [5, 8],
-      [8, 10],
-      [6, 14],
-    ],
-    palette.outline,
-  );
-  painter.polygon(
-    [
-      [2, 12],
-      [5, 9],
-      [7, 11],
-      [5, 13],
-    ],
-    palette.wing,
-  );
-  painter.polygon(
-    [
-      [4, 11],
-      [6, 9],
-      [7, 11],
-      [5, 12],
-    ],
-    palette.flame,
-  );
-}
-
-function drawPhoenixBody(painter, palette) {
-  painter.ellipse(12, 11, 8, 5, palette.outline);
-  painter.ellipse(12, 11, 7, 4, palette.body);
-  painter.ellipse(12, 12, 5, 2, palette.belly);
-}
-
-function drawPhoenixHead(painter, palette, eyes) {
-  painter.ellipse(16, 9, 4, 3, palette.outline);
-  painter.ellipse(16, 9, 3, 2, palette.body);
-  painter.ellipse(18, 8, 5, 3, palette.outline);
-  painter.ellipse(18, 8, 4, 2, palette.body);
-
-  painter.polygon(
-    [
-      [14, 6],
-      [15, 2],
-      [17, 6],
-    ],
-    palette.wing,
-  );
-  painter.polygon(
-    [
-      [16, 5],
-      [18, 1],
-      [20, 5],
-    ],
-    palette.flame,
-  );
-  painter.polygon(
-    [
-      [20, 7],
-      [23, 8],
-      [23, 10],
-      [20, 9],
-    ],
-    palette.beak,
-  );
-  painter.set(23, 8, palette.outline);
-
-  if (eyes === 'happy') {
-    painter.rect(19, 7, 2, 1, palette.outline);
-    painter.set(17, 9, palette.blush);
-    painter.set(16, 10, palette.blush);
-  } else {
-    painter.rect(19, 6, 2, 2, palette.eye);
-    painter.rect(20, 6, 1, 2, palette.pupil);
-    painter.rect(18, 5, 3, 1, palette.outline);
-  }
-}
-
-function drawDragon(painter, pose) {
-  drawDragonTail(painter, PALETTES.dragon);
-  drawWing(painter, PALETTES.dragon, pose.wingLift, 'dragon');
-  drawLegs(painter, PALETTES.dragon, pose.legPhase);
-  drawDragonBody(painter, PALETTES.dragon);
-  drawDragonHead(painter, PALETTES.dragon, pose.eyes);
-}
-
-function drawPhoenix(painter, pose) {
-  drawPhoenixTail(painter, PALETTES.phoenix);
-  drawWing(painter, PALETTES.phoenix, pose.wingLift, 'phoenix');
-  drawLegs(painter, PALETTES.phoenix, pose.legPhase);
-  drawPhoenixBody(painter, PALETTES.phoenix);
-  drawPhoenixHead(painter, PALETTES.phoenix, pose.eyes);
+function drawPhoenix(p, pose) {
+  const pal = PALETTES.phoenix;
+  drawPhoenixTail(p, pal);
+  drawPhoenixWing(p, pal, pose.flap ?? 0);
+  drawPhoenixLegs(p, pal, pose.legPhase ?? 0);
+  drawPhoenixBody(p, pal);
+  drawPhoenixNeck(p, pal);
+  drawPhoenixHead(p, pal, pose.eyes ?? 'open');
 }
 
 const DRAWERS = {
@@ -418,11 +563,12 @@ function createFrame(character, pose) {
 
   const painter = createPixelCanvas();
   DRAWERS[character](painter, {
-    wingLift: 0,
+    flap: 0,
     legPhase: 0,
     eyes: 'open',
     ...pose,
   });
+  painter.finalize(PALETTES[character].outline);
 
   const frame = {
     canvas: painter.canvas,
@@ -437,14 +583,14 @@ function createFrame(character, pose) {
 export function createSprites() {
   return {
     dragon: {
-      idle: [createFrame('dragon', { wingLift: 0 }), createFrame('dragon', { wingLift: 1 })],
-      walk: [createFrame('dragon', { wingLift: 0, legPhase: 0 }), createFrame('dragon', { wingLift: 1, legPhase: 1 })],
-      pet: [createFrame('dragon', { wingLift: 0, eyes: 'happy' })],
+      idle: [0, 1, 2, 3].map((flap) => createFrame('dragon', { flap })),
+      walk: [0, 1, 2, 3].map((flap) => createFrame('dragon', { flap, legPhase: flap % 2 })),
+      pet: [createFrame('dragon', { flap: 3, eyes: 'happy' })],
     },
     phoenix: {
-      idle: [createFrame('phoenix', { wingLift: 0 }), createFrame('phoenix', { wingLift: 1 })],
-      walk: [createFrame('phoenix', { wingLift: 0, legPhase: 0 }), createFrame('phoenix', { wingLift: 1, legPhase: 1 })],
-      pet: [createFrame('phoenix', { wingLift: 0, eyes: 'happy' })],
+      idle: [0, 1, 2, 3].map((flap) => createFrame('phoenix', { flap })),
+      walk: [0, 1, 2, 3].map((flap) => createFrame('phoenix', { flap, legPhase: flap % 2 })),
+      pet: [createFrame('phoenix', { flap: 3, eyes: 'happy' })],
     },
   };
 }

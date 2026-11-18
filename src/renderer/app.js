@@ -30,9 +30,9 @@ function currentFrame(state) {
     return creature.pet[0];
   }
   if (state.mode === 'walk') {
-    return creature.walk[Math.floor(state.time / 160) % creature.walk.length];
+    return creature.walk[Math.floor(state.time / 130) % creature.walk.length];
   }
-  return creature.idle[Math.floor(state.time / 650) % creature.idle.length];
+  return creature.idle[Math.floor(state.time / 320) % creature.idle.length];
 }
 
 function bobFor(state) {

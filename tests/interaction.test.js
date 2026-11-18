@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GRID_WIDTH, PIXEL_SIZE } from '../src/pet/sprites.js';
+import { GRID_HEIGHT, GRID_WIDTH, PIXEL_SIZE } from '../src/pet/sprites.js';
 import { isCursorTouchingPet } from '../src/pet/interaction.js';
 
 function frameWithPixel(x, y) {
-  const hit = new Uint8Array(GRID_WIDTH * 18);
+  const hit = new Uint8Array(GRID_WIDTH * GRID_HEIGHT);
   hit[y * GRID_WIDTH + x] = 1;
   return { hit };
 }
