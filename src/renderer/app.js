@@ -24,15 +24,18 @@ function resizeCanvas() {
   engine.setBounds(window.innerWidth, window.innerHeight);
 }
 
+const FLAP_PERIOD = 6;
+const FLAP_BURST = 0.8;
+
 function currentFrame(state) {
   const creature = sprites[character];
   if (state.mode === 'pet') {
     return creature.pet[0];
   }
-  if (state.mode === 'walk') {
-    return creature.walk[Math.floor(state.time / 130) % creature.walk.length];
-  }
-  return creature.idle[Math.floor(state.time / 320) % creature.idle.length];
+  const frames = state.mode === 'walk' ? creature.walk : creature.idle;
+  const bursting = state.mode === 'idle' && state.time % FLAP_PERIOD < FLAP_BURST;
+  const interval = state.mode === 'walk' ? 0.11 : bursting ? 0.09 : 0.26;
+  return frames[Math.floor(state.time / interval) % frames.length];
 }
 
 function bobFor(state) {

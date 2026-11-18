@@ -36,7 +36,7 @@ const PALETTES = {
   },
 };
 
-const FLAP_RAISE = [0, 0.6, 1, 0.7];
+const FLAP_RAISE = [0, 0.5, 1, 1.2, 0.7, 0.2];
 
 function pointInPolygon(x, y, points) {
   let inside = false;
@@ -276,11 +276,11 @@ function drawDragon(p, pose) {
   );
 
   const shoulder = [15, 17];
-  const elbow = [10, 11 - raise * 4];
+  const elbow = [10, 11 - raise * 5];
   const tips = [
-    [3, 5 - raise * 4],
-    [4, 10 - raise * 3],
-    [8, 15 - raise * 2],
+    [3, 7 - raise * 5],
+    [4, 11 - raise * 4],
+    [8, 15 - raise * 3],
   ];
   p.polygon([shoulder, elbow, tips[0], tips[1], tips[2], [13, 19], shoulder], pal.wing);
   p.polygon([shoulder, elbow, tips[0]], pal.wingShade);
@@ -401,11 +401,11 @@ function drawPhoenix(p, pose) {
 
   const shoulder = [15, 17];
   const feathers = [
-    [[15, 17], [3, 4 - raise * 4], pal.wingLight],
-    [[15, 17], [2, 9 - raise * 3], pal.wing],
-    [[15, 17], [7, 14 - raise * 3], pal.wingShade],
-    [[14, 16], [10, 4 - raise * 4], pal.flame],
-    [[14, 16], [12, 9 - raise * 3], pal.wing],
+    [[15, 17], [3, 6 - raise * 5], pal.wingLight],
+    [[15, 17], [2, 10 - raise * 4], pal.wing],
+    [[15, 17], [7, 15 - raise * 3], pal.wingShade],
+    [[14, 16], [10, 6 - raise * 5], pal.flame],
+    [[14, 16], [12, 10 - raise * 4], pal.wing],
   ];
   p.ellipse(14, 16, 3, 3, pal.wingShade);
   for (const [base, tip, color] of feathers) {
@@ -539,14 +539,14 @@ function createFrame(character, pose) {
 export function createSprites() {
   return {
     dragon: {
-      idle: [0, 1, 2, 3].map((flap) => createFrame('dragon', { flap })),
-      walk: [0, 1, 2, 3].map((flap) => createFrame('dragon', { flap, legPhase: flap % 2 })),
-      pet: [createFrame('dragon', { flap: 3, eyes: 'happy' })],
+      idle: [0, 1, 2, 3, 4, 5].map((flap) => createFrame('dragon', { flap })),
+      walk: [0, 1, 2, 3, 4, 5].map((flap) => createFrame('dragon', { flap, legPhase: flap % 2 })),
+      pet: [createFrame('dragon', { flap: 2, eyes: 'happy' })],
     },
     phoenix: {
-      idle: [0, 1, 2, 3].map((flap) => createFrame('phoenix', { flap })),
-      walk: [0, 1, 2, 3].map((flap) => createFrame('phoenix', { flap, legPhase: flap % 2 })),
-      pet: [createFrame('phoenix', { flap: 3, eyes: 'happy' })],
+      idle: [0, 1, 2, 3, 4, 5].map((flap) => createFrame('phoenix', { flap })),
+      walk: [0, 1, 2, 3, 4, 5].map((flap) => createFrame('phoenix', { flap, legPhase: flap % 2 })),
+      pet: [createFrame('phoenix', { flap: 2, eyes: 'happy' })],
     },
   };
 }
