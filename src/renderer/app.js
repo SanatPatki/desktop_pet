@@ -1,12 +1,18 @@
 import { PetEngine } from '../pet/engine.js';
+import { createHeartSprite, HeartParticles } from '../pet/hearts.js';
+import { isCursorTouchingPet } from '../pet/interaction.js';
 import { createSprites, PET_WIDTH, PET_HEIGHT } from '../pet/sprites.js';
 
 const canvas = document.getElementById('pet-canvas');
 const context = canvas.getContext('2d');
 const sprites = createSprites();
 const engine = new PetEngine({ width: window.innerWidth, height: window.innerHeight });
+const heartSprite = createHeartSprite();
+const heartParticles = new HeartParticles();
 
 let character = 'dragon';
+let cursor = null;
+let lastRender = null;
 let lastFrameTime = performance.now();
 
 function resizeCanvas() {
@@ -29,6 +35,13 @@ function currentFrame(state) {
   return creature.idle[Math.floor(state.time / 650) % creature.idle.length];
 }
 
+function bobFor(state) {
+  if (state.mode === 'walk') {
+    return Math.round(Math.abs(Math.sin(state.time / 110)));
+  }
+  return Math.round(Math.sin(state.time / (state.mode === 'pet' ? 450 : 320)));
+}
+
 function drawFrame(frame, x, y, direction) {
   const drawX = Math.round(x);
   const drawY = Math.round(y);
@@ -45,20 +58,40 @@ function drawFrame(frame, x, y, direction) {
   context.restore();
 }
 
-function render(state) {
+function drawHearts(hearts) {
+  for (const heart of hearts) {
+    context.globalAlpha = Math.max(0, heart.life / heart.maxLife);
+    context.drawImage(heartSprite, Math.round(heart.x), Math.round(heart.y));
+  }
+  context.globalAlpha = 1;
+}
+
+function render(state, bob, frame, hearts) {
   context.clearRect(0, 0, window.innerWidth, window.innerHeight);
-
-  const bob = state.mode === 'walk'
-    ? Math.round(Math.abs(Math.sin(state.time / 110)))
-    : Math.round(Math.sin(state.time / (state.mode === 'pet' ? 450 : 320)));
-
-  drawFrame(currentFrame(state), state.x, state.y + bob, state.direction);
+  drawFrame(frame, state.x, state.y + bob, state.direction);
+  drawHearts(hearts);
 }
 
 function loop(now) {
   const delta = Math.min((now - lastFrameTime) / 1000, 0.1);
   lastFrameTime = now;
-  render(engine.update(delta));
+
+  const petting = lastRender
+    ? isCursorTouchingPet(cursor, lastRender.position, lastRender.frame)
+    : false;
+  const state = engine.update(delta, { cursor, petting });
+  const bob = bobFor(state);
+  const frame = currentFrame(state);
+  const hearts = heartParticles.update(delta, {
+    petting,
+    origin: { x: state.x, y: state.y + bob, width: PET_WIDTH },
+  });
+
+  render(state, bob, frame, hearts);
+  lastRender = {
+    position: { x: state.x, y: state.y + bob, direction: state.direction },
+    frame,
+  };
   requestAnimationFrame(loop);
 }
 
@@ -72,6 +105,10 @@ async function loadState() {
     character = 'dragon';
   }
 }
+
+window.desktopPet?.onCursor?.((point) => {
+  cursor = point;
+});
 
 window.desktopPet?.onState?.((state) => {
   if (state?.character === 'dragon' || state?.character === 'phoenix') {
