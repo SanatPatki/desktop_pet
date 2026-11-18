@@ -1,4 +1,6 @@
-import { nativeImage } from 'electron';
+import electron from 'electron';
+
+const { nativeImage } = electron;
 import { deflateSync } from 'node:zlib';
 
 const SIZE = 16;

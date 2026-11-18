@@ -1,4 +1,6 @@
-import { app, ipcMain } from 'electron';
+import electron from 'electron';
+
+const { app, ipcMain } = electron;
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createOverlayWindow } from './overlay.js';

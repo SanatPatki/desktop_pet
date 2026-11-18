@@ -1,4 +1,6 @@
-import { BrowserWindow, screen } from 'electron';
+import electron from 'electron';
+
+const { BrowserWindow, screen } = electron;
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 

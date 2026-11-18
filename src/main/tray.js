@@ -1,4 +1,6 @@
-import { app, Menu, Tray } from 'electron';
+import electron from 'electron';
+
+const { app, Menu, Tray } = electron;
 import { createTrayIcon } from './tray-icon.js';
 
 export function createTray({ getState, setCharacter }) {
